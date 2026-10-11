@@ -221,7 +221,7 @@ def validate(format: str, value: object, *, alphabet: str = NANOID_ALPHABET) -> 
         return False
     try:
         parse(format, value, alphabet=alphabet)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return False
 
     return True

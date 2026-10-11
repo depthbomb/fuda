@@ -6,7 +6,7 @@ build-backend = 'setuptools.build_meta'
 name = 'fuda'
 version = '0.1.0'
 description = 'Typed identifiers and fast generation through a consistent Python API.'
-requires-python = '>=3.12'
+requires-python = '>=3.14'
 license = 'MIT'
 license-files = ['LICENSE', 'src/fuda/LICENSE.*']
 authors = [{name = 'Fuda contributors'}]
@@ -15,9 +15,8 @@ keywords = ['uid', 'uuid', 'cuid2', 'ulid', 'nanoid', 'xuid', 'typeid']
 classifiers = [
   'Development Status :: 3 - Alpha',
   'Programming Language :: Python :: 3',
-  'Programming Language :: Python :: 3.12',
-  'Programming Language :: Python :: 3.13',
   'Programming Language :: Python :: 3.14',
+  'Programming Language :: Python :: 3.15',
   'Programming Language :: Rust',
   'Typing :: Typed',
 ]
@@ -38,7 +37,7 @@ dev = [
 ]
 
 [tool.cibuildwheel]
-build = 'cp312-*'
+build = 'cp314-*'
 archs = ['native']
 test-sources = ['tests', 'tools', 'pyproject.toml']
 test-requires = ['pytest==9.1.1', 'pytest-cov==7.1.0', 'hypothesis==6.168.5', 'cuid2==2.0.1']
@@ -62,7 +61,7 @@ where = ['src']
 fuda = ['py.typed', '*.pyi', 'codecs/sqids-blocklist.json', 'LICENSE.*']
 
 [tool.ruff]
-target-version = 'py312'
+target-version = 'py314'
 line-length = 120
 
 [tool.ruff.lint]
@@ -73,7 +72,7 @@ ignore = ['B008']
 quote-style = 'single'
 
 [tool.mypy]
-python_version = '3.12'
+python_version = '3.14'
 files = ['src/fuda']
 strict = true
 

@@ -8,7 +8,7 @@ VERSION = '0.1.0'
 
 
 def make_wheel(directory, platform, *, omit=None, metadata=None, pure=False):
-    path = directory / f'fuda-{VERSION}-cp312-abi3-{platform}.whl'
+    path = directory / f'fuda-{VERSION}-cp314-abi3-{platform}.whl'
     extension = 'fuda/_native.pyd' if platform.startswith('win') else 'fuda/_native.abi3.so'
     with ZipFile(path, 'w') as archive:
         for name in PACKAGE_FILES | {extension}:
@@ -16,12 +16,12 @@ def make_wheel(directory, platform, *, omit=None, metadata=None, pure=False):
                 archive.writestr(name, '')
         archive.writestr(
             f'fuda-{VERSION}.dist-info/METADATA',
-            metadata or f'Name: fuda\nVersion: {VERSION}\nRequires-Python: >=3.12\n',
+            metadata or f'Name: fuda\nVersion: {VERSION}\nRequires-Python: >=3.14\n',
         )
         archive.writestr(
             f'fuda-{VERSION}.dist-info/WHEEL',
             f'Root-Is-Purelib: {str(pure).lower()}\n'
-            + ''.join(f'Tag: cp312-abi3-{tag}\n' for tag in platform.split('.')),
+            + ''.join(f'Tag: cp314-abi3-{tag}\n' for tag in platform.split('.')),
         )
     return path
 
@@ -52,18 +52,18 @@ def test_complete_release_set(distributions):
 
 
 def test_repaired_linux_wheel_can_have_multiple_tags(distributions):
-    (distributions / f'fuda-{VERSION}-cp312-abi3-manylinux_2_28_x86_64.whl').unlink()
+    (distributions / f'fuda-{VERSION}-cp314-abi3-manylinux_2_28_x86_64.whl').unlink()
     make_wheel(distributions, 'manylinux_2_28_x86_64.manylinux_2_34_x86_64')
     assert check_distributions(distributions, VERSION) == set(PLATFORMS)
 
 
 def test_missing_platform_blocks_release(distributions):
-    (distributions / f'fuda-{VERSION}-cp312-abi3-win_arm64.whl').unlink()
+    (distributions / f'fuda-{VERSION}-cp314-abi3-win_arm64.whl').unlink()
     with raises(ValueError, match='missing wheel platforms: windows-arm64'):
         check_distributions(distributions, VERSION)
 
 
-@mark.parametrize('filename', ['fuda-0.1.0-py3-none-any.whl', 'fuda-0.1.0-cp313-cp313-win_amd64.whl'])
+@mark.parametrize('filename', ['fuda-0.1.0-py3-none-any.whl', 'fuda-0.1.0-cp314-cp314-win_amd64.whl'])
 def test_incorrect_abi_blocks_release(distributions, filename):
     (distributions / filename).touch()
     with raises(ValueError, match='unexpected wheel name or ABI'):
@@ -84,7 +84,7 @@ def test_incomplete_wheel_blocks_release(distributions, omit):
 
 
 def test_inconsistent_metadata_blocks_release(distributions):
-    make_wheel(distributions, 'win_amd64', metadata='Name: fuda\nVersion: 0.2.0\nRequires-Python: >=3.12\n')
+    make_wheel(distributions, 'win_amd64', metadata='Name: fuda\nVersion: 0.2.0\nRequires-Python: >=3.14\n')
     with raises(ValueError, match='inconsistent package metadata'):
         check_distributions(distributions, VERSION)
 

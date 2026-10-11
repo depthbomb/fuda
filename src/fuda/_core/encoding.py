@@ -15,7 +15,7 @@ _PAIRS = tuple(a + b for a in BASE36 for b in BASE36)
 _HEX = compile('[0-9a-f]*')
 
 @lru_cache(maxsize=32)
-def _radix(alphabet: str) -> 'RadixCodec':
+def _radix(alphabet: str) -> RadixCodec:
     return native.RadixCodec(alphabet)
 
 def integer(value: int, name: str, minimum: int, maximum: int) -> int:

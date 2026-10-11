@@ -67,7 +67,7 @@ def check_distributions(directory: Path, version: str) -> set[str]:
     wheels = sorted(directory.glob('*.whl'))
     for path in wheels:
         parts = path.stem.split('-')
-        if len(parts) != 5 or parts[:4] != ['fuda', version, 'cp312', 'abi3']:
+        if len(parts) != 5 or parts[:4] != ['fuda', version, 'cp314', 'abi3']:
             raise ValueError(f'unexpected wheel name or ABI: {path.name}')
         # A repaired Linux wheel can advertise several compatible platform tags.
         tags = parts[4].split('.')
@@ -84,11 +84,11 @@ def check_distributions(directory: Path, version: str) -> set[str]:
             if len(binaries) != 1:
                 raise ValueError(f'{path.name} must contain exactly one native extension')
             metadata = BytesParser().parsebytes(archive.read(f'fuda-{version}.dist-info/METADATA'))
-            if metadata['Name'] != 'fuda' or metadata['Version'] != version or metadata['Requires-Python'] != '>=3.12':
+            if metadata['Name'] != 'fuda' or metadata['Version'] != version or metadata['Requires-Python'] != '>=3.14':
                 raise ValueError(f'{path.name} has inconsistent package metadata')
             wheel = BytesParser().parsebytes(archive.read(f'fuda-{version}.dist-info/WHEEL'))
             if wheel['Root-Is-Purelib'] != 'false' or set(wheel.get_all('Tag', [])) != {
-                f'cp312-abi3-{tag}' for tag in tags
+                f'cp314-abi3-{tag}' for tag in tags
             }:
                 raise ValueError(f'{path.name} has inconsistent wheel tags')
     if found != PLATFORMS.keys():

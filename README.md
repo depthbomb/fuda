@@ -11,7 +11,7 @@ to expose, like a timestamp, a UUID, or a content digest.
 - Configure generator classes once and reuse them across calls.
 - Work from Python or the command line, with Rust handling the hot loops.
 
-Fuda supports **Python 3.12+**, has **no required third-party Python runtime
+Fuda supports **Python 3.14+**, has **no required third-party Python runtime
 dependencies**, and is licensed under **MIT**. It's still in early development,
 so the API may change before a stable release.
 
@@ -34,7 +34,7 @@ Rust toolchain. Wheels target these platforms:
 | Linux with musl 1.2+, including Alpine | x86-64, ARM64 |
 
 Fuda uses CPython's stable ABI, so the same wheel works across standard CPython
-3.12+ versions. CI covers 3.12, 3.13, and 3.14. Free-threaded Python and PyPy aren't
+3.14+ versions. CI covers 3.14 and 3.15. Free-threaded Python and PyPy aren't
 supported by these wheels.
 
 The extension is required and always used. There are no backend settings or
@@ -496,7 +496,7 @@ The top-level package keeps the public imports together, so callers can use
 `from fuda import ULIDGenerator` without knowing the source layout.
 
 CI builds wheels from the source distribution and tests them outside the checkout.
-It covers Python 3.12–3.14 on Linux, Windows, and macOS, with x86-64 and ARM64 runners
+It covers Python 3.14–3.15 on Linux, Windows, and macOS, with x86-64 and ARM64 runners
 and separate Linux musl builds. The release check requires all eight platform
 wheels, the extension, typing files, codec data, and licenses. PyPI releases reuse
 those tested artifacts.
