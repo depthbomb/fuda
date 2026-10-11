@@ -50,11 +50,12 @@ def test_every_generatable_format_has_a_public_class_and_cli_entry():
         assert _GENERATORS[name] is cls
 
 @mark.parametrize('name,cls,options', GENERATORS)
-def test_generator_interface(name, cls, options):
+@mark.parametrize('parallel', [False, True])
+def test_generator_interface(name, cls, options, parallel):
     source = cls(**options)
-    values = [source.generate(), *source.generate_many(2), *source.iter_ids(2)]
+    values = [source.generate(), *source.generate_many(2, parallel=parallel), *source.iter_ids(2)]
     assert all(fuda.validate(name, str(value)) for value in values)
-    assert source.generate_many(0) == []
+    assert source.generate_many(0, parallel=parallel) == []
     assert list(source.iter_ids(0)) == []
     assert len(list(islice(source.iter_ids(), 3))) == 3
 
@@ -68,6 +69,9 @@ def test_generator_count_errors(name, cls, options):
             list(source.iter_ids(count))
     with raises(ValueError):
         source.generate_many(1_000_001)
+    for parallel in (None, 0, 1, 'yes'):
+        with raises(TypeError, match='parallel'):
+            source.generate_many(0, parallel=parallel)
 
 @mark.parametrize('name,cls,options', GENERATORS)
 def test_generators_cannot_duplicate_state(name, cls, options):
@@ -130,7 +134,7 @@ def test_node_assignments_are_required_at_construction(cls):
         cls()
 
 @mark.parametrize('cls,options', [(fuda.TypeIDGenerator, {'prefix': 'Bad'}), (fuda.XUIDGenerator, {'prefix': 'too-long'}),
-                                 (fuda.NanoIDGenerator, {'length': 0}), (fuda.Cuid2Generator, {'parallel': 1})])
+                                 (fuda.NanoIDGenerator, {'length': 0}), (fuda.Cuid2Generator, {'length': 1})])
 def test_bad_configuration_fails_before_generation(cls, options):
     with raises((TypeError, ValueError)):
         cls(**options)

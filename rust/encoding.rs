@@ -1,3 +1,4 @@
+use crate::batch;
 use data_encoding::{
     BASE32_NOPAD, BASE64, BASE64_NOPAD, BASE64URL, BASE64URL_NOPAD, HEXLOWER, HEXUPPER,
 };
@@ -149,6 +150,38 @@ impl RadixCodec {
 
         Ok(PyBytes::new(py, &number.to_bytes_be()))
     }
+
+    #[pyo3(signature = (values, width, parallel=false))]
+    fn encode_u128_many(
+        &self,
+        py: Python<'_>,
+        values: Vec<u128>,
+        width: usize,
+        parallel: bool,
+    ) -> PyResult<Vec<String>> {
+        Self::width(width)?;
+        py.detach(|| {
+            batch::map(values.len(), parallel, |index| {
+                self.encode_u128(values[index], width)
+            })
+        })
+    }
+
+    #[pyo3(signature = (values, width, bits, parallel=false))]
+    fn decode_u128_many(
+        &self,
+        py: Python<'_>,
+        values: Vec<String>,
+        width: usize,
+        bits: u32,
+        parallel: bool,
+    ) -> PyResult<Vec<u128>> {
+        py.detach(|| {
+            batch::map(values.len(), parallel, |index| {
+                self.decode_u128(&values[index], width, bits)
+            })
+        })
+    }
 }
 
 fn base_encode(data: &[u8], alphabet: &str) -> String {
@@ -261,8 +294,7 @@ pub fn proquint_encode(data: &[u8]) -> PyResult<String> {
     Ok(output)
 }
 
-#[pyfunction]
-pub fn proquint_decode<'py>(py: Python<'py>, value: &str) -> PyResult<Bound<'py, PyBytes>> {
+fn decode_proquint(value: &str) -> PyResult<Vec<u8>> {
     let mut output = Vec::with_capacity(value.len() / 3);
     for word in value.split('-') {
         if word.len() != 5 {
@@ -282,7 +314,44 @@ pub fn proquint_decode<'py>(py: Python<'py>, value: &str) -> PyResult<Bound<'py,
         output.extend(number.to_be_bytes());
     }
 
-    Ok(PyBytes::new(py, &output))
+    Ok(output)
+}
+
+#[pyfunction]
+pub fn proquint_decode<'py>(py: Python<'py>, value: &str) -> PyResult<Bound<'py, PyBytes>> {
+    Ok(PyBytes::new(py, &decode_proquint(value)?))
+}
+
+#[pyfunction]
+#[pyo3(signature = (values, parallel=false))]
+pub fn proquint_encode_many(
+    py: Python<'_>,
+    values: Vec<Vec<u8>>,
+    parallel: bool,
+) -> PyResult<Vec<String>> {
+    py.detach(|| {
+        batch::map(values.len(), parallel, |index| {
+            proquint_encode(&values[index])
+        })
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (values, parallel=false))]
+pub fn proquint_decode_many<'py>(
+    py: Python<'py>,
+    values: Vec<String>,
+    parallel: bool,
+) -> PyResult<Vec<Bound<'py, PyBytes>>> {
+    let decoded = py.detach(|| {
+        batch::map(values.len(), parallel, |index| {
+            decode_proquint(&values[index])
+        })
+    })?;
+    Ok(decoded
+        .iter()
+        .map(|value| PyBytes::new(py, value))
+        .collect())
 }
 
 #[pyfunction]
@@ -307,6 +376,8 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(proquint_encode, module)?)?;
     module.add_function(wrap_pyfunction!(proquint_decode, module)?)?;
     module.add_function(wrap_pyfunction!(hex_checkdigit, module)?)?;
+    module.add_function(wrap_pyfunction!(proquint_encode_many, module)?)?;
+    module.add_function(wrap_pyfunction!(proquint_decode_many, module)?)?;
 
     Ok(())
 }

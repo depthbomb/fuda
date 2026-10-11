@@ -20,8 +20,8 @@ def test_native_hash_matches_reference(data):
 @mark.parametrize('length', [2, 10, 24, 32])
 @mark.parametrize('parallel', [False, True])
 def test_batch(parallel, length):
-    generator = Cuid2Generator(length, parallel=parallel)
-    values = generator.generate_many(300)
+    generator = Cuid2Generator(length)
+    values = generator.generate_many(300, parallel=parallel)
     assert all(is_cuid2(value, length=length) for value in values)
     if length >= 10:
         assert len(set(values)) == len(values)

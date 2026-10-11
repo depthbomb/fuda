@@ -110,17 +110,23 @@ def test_native_parallel_generation_after_fork():
     code = '''
 import os, signal
 from fuda import Cuid2Generator, is_cuid2
-from fuda import _native
-source = Cuid2Generator(parallel=True)
-source.generate_many(100)
+from fuda import _native, NanoIDGenerator, Hashids, UUID4Generator
+codec = Hashids()
+codec.encode_many([[i] for i in range(1024)], parallel=True)
+source = Cuid2Generator()
+source.generate_many(1024, parallel=True)
 pid = os.fork()
 if pid == 0:
     signal.alarm(10)
     try:
-        ids = source.generate_many(100)
-        ids += Cuid2Generator(parallel=True).generate_many(100)
-        ids += _native.cuid2_many(100, 24, 'fork test', 1, True)
-        assert len(set(ids)) == 300 and all(is_cuid2(value) for value in ids)
+        ids = source.generate_many(1024, parallel=True)
+        ids += Cuid2Generator().generate_many(1024, parallel=True)
+        ids += _native.cuid2_many(1024, 24, 'fork test', 1, True)
+        assert len(set(ids)) == 3072 and all(is_cuid2(value) for value in ids)
+        assert len(set(NanoIDGenerator().generate_many(1024, parallel=True))) == 1024
+        assert len(set(UUID4Generator().generate_many(1024, parallel=True))) == 1024
+        rows = [[i] for i in range(1024)]
+        assert codec.decode_many(codec.encode_many(rows, parallel=True), parallel=True) == rows
         os._exit(0)
     except BaseException:
         os._exit(1)
@@ -132,12 +138,17 @@ assert status == 0, status
 
 def test_native_after_fork_hook_preserves_generation():
     result = run([executable, '-c', '''
-from fuda import _native, is_cuid2
-_native.cuid2_many(100, 24, 'test', 1, True)
+from fuda import _native, is_cuid2, NanoIDGenerator, Hashids, UUID4Generator
+_native.cuid2_many(1024, 24, 'test', 1, True)
 _native._after_fork()
 _native._after_fork()
-ids = _native.cuid2_many(100, 24, 'test', 101, True)
-assert len(set(ids)) == 100 and all(is_cuid2(value) for value in ids)
+ids = _native.cuid2_many(1024, 24, 'test', 1025, True)
+assert len(set(ids)) == 1024 and all(is_cuid2(value) for value in ids)
+assert len(set(NanoIDGenerator().generate_many(1024, parallel=True))) == 1024
+assert len(set(UUID4Generator().generate_many(1024, parallel=True))) == 1024
+rows = [[i] for i in range(1024)]
+codec = Hashids()
+assert codec.decode_many(codec.encode_many(rows, parallel=True), parallel=True) == rows
 '''], capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stderr
 

@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from importlib.resources import files
 from fuda._core.encoding import integer
 from fuda._core.extension import native
+from fuda._core.batch import text_items, batch_items
 
 SQIDS_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -96,6 +97,15 @@ class Sqids:
         if not isinstance(value, str):
             raise TypeError('identifier must be a string')
         return self._native_codec.decode(value, bool(canonical))
+
+    def encode_many(self, values: Iterable[Iterable[int]], *, parallel: bool = False) -> list[str]:
+        rows = batch_items(values, parallel)
+        numbers = [[integer(value, 'number', 0, (1 << 63) - 1) for value in row] for row in rows]
+
+        return self._native_codec.encode_many(numbers, parallel)
+
+    def decode_many(self, values: Iterable[str], *, canonical: bool = False, parallel: bool = False) -> list[list[int]]:
+        return self._native_codec.decode_many(text_items(values, parallel), bool(canonical), parallel)
 
 @lru_cache(maxsize=1)
 def default_sqids() -> Sqids:

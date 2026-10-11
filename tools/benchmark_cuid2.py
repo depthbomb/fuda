@@ -52,7 +52,7 @@ runner.metadata['entropy_policy'] = 'default secure production generators; no se
 AnyidGenerator = anyid_generator()
 for length in (10, 24, 32):
     native = Cuid2Generator(length)
-    parallel = Cuid2Generator(length, parallel=True)
+    parallel = Cuid2Generator(length)
     original = Cuid(length=length)
     anyid = AnyidGenerator(length=length)
     benchmark(f'cuid2/{length}', original.generate)
@@ -72,6 +72,6 @@ for length in (10, 24, 32):
         )
         benchmark(
             f'fuda-parallel/{length}/batch-{count}',
-            lambda parallel=parallel, count=count: parallel.generate_many(count),
+            lambda parallel=parallel, count=count: parallel.generate_many(count, parallel=True),
             inner_loops=count,
         )

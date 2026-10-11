@@ -3,9 +3,10 @@ from time import time_ns
 from uuid import UUID, uuid4
 from functools import lru_cache
 from collections.abc import Callable
+from fuda._core.extension import native
 from fuda.identifiers.types import ULID, KSUID
 from fuda._core.state import Generator, ProcessGenerator
-from fuda._core.encoding import decode, encode, integer, SHORTUUID
+from fuda._core.encoding import _radix, decode, encode, integer, SHORTUUID
 
 NANOID_ALPHABET = '_-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -55,9 +56,13 @@ class NanoIDGenerator(Generator[str]):
         self._length = integer(length, 'length', 1, 1_000_000)
         self._table, self._excluded = _nanoid_layout(alphabet)
         self._alphabet = alphabet
+        self._native_random = native.RandomAlphabet(alphabet)
 
     def generate(self) -> str:
         return _nanoid(self._length, self._alphabet, self._table, self._excluded)
+
+    def _generate_many(self, count: int, parallel: bool) -> list[str]:
+        return self._native_random.generate_many(count, self._length, parallel)
 
 class ULIDGenerator(ProcessGenerator[ULID]):
     def __init__(self, *, monotonic: bool = True, clock: Callable[[], int] | None = None) -> None:
@@ -100,11 +105,27 @@ class KSUIDGenerator(Generator[KSUID]):
     def generate(self) -> KSUID:
         return ksuid(timestamp=self._timestamp)
 
+    def _generate_many(self, count: int, parallel: bool) -> list[KSUID]:
+        values = native.random_u128_many(count, (1 << 128) - 1, parallel=parallel)
+        results = []
+        for random in values:
+            timestamp = time_ns() // 1_000_000_000 if self._timestamp is None else self._timestamp
+            integer(timestamp, 'timestamp', 1_400_000_000, 1_400_000_000 + (1 << 32) - 1)
+            results.append(KSUID(((timestamp - 1_400_000_000) << 128) | random))
+
+        return results
+
 class ShortUUIDGenerator(Generator[str]):
     """Generate random UUIDv4 values encoded in ShortUUID's base57 alphabet."""
 
     def generate(self) -> str:
         return shortuuid()
+
+    def _generate_many(self, count: int, parallel: bool) -> list[str]:
+        mask = ((1 << 128) - 1) ^ ((15 << 76) | (3 << 62))
+        values = native.random_u128_many(count, mask, (4 << 76) | (2 << 62), parallel)
+
+        return _radix(SHORTUUID).encode_u128_many(values, 22, parallel)
 
 def ksuid(*, timestamp: int | None = None) -> KSUID:
     timestamp = time_ns() // 1_000_000_000 if timestamp is None else timestamp

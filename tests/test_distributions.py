@@ -30,6 +30,7 @@ def make_sdist(directory, *, omit=None, extra=()):
     names = {
         'Cargo.toml', 'Cargo.lock', 'setup.py', 'pyproject.toml', 'MANIFEST.in',
         'rust/lib.rs', 'rust/encoding.rs', 'rust/hashids.rs', 'rust/sqids.rs',
+        'rust/batch.rs', 'rust/cuid.rs', 'rust/random.rs',
         'tests/reference_codecs.py', 'tools/check_distributions.py',
         *('src/' + name for name in PACKAGE_FILES), *extra,
     }
@@ -76,7 +77,7 @@ def test_duplicate_platform_blocks_release(distributions):
         check_distributions(distributions, VERSION)
 
 
-@mark.parametrize('omit', ['fuda/_native.pyd', 'fuda/codecs/sqids-blocklist.json', 'fuda/identifiers/upid.py'])
+@mark.parametrize('omit', ['fuda/_native.pyd', 'fuda/codecs/sqids-blocklist.json', 'fuda/identifiers/upid.py', 'fuda/_core/batch.py'])
 def test_incomplete_wheel_blocks_release(distributions, omit):
     make_wheel(distributions, 'win_amd64', omit=omit)
     with raises(ValueError, match='missing:|exactly one native extension'):
@@ -95,9 +96,10 @@ def test_pure_wheel_metadata_blocks_release(distributions):
         check_distributions(distributions, VERSION)
 
 
-def test_source_distribution_needs_rust_sources(distributions):
-    make_sdist(distributions, omit='rust/encoding.rs')
-    with raises(ValueError, match='source distribution is missing:.*rust/encoding.rs'):
+@mark.parametrize('source', ['encoding', 'batch', 'cuid', 'random'])
+def test_source_distribution_needs_rust_sources(distributions, source):
+    make_sdist(distributions, omit=f'rust/{source}.rs')
+    with raises(ValueError, match=f'source distribution is missing:.*rust/{source}.rs'):
         check_distributions(distributions, VERSION)
 
 

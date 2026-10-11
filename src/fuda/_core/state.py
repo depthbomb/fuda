@@ -2,6 +2,7 @@ from os import getpid
 from threading import Lock
 from typing import Generic, TypeVar
 from collections.abc import Iterator
+from fuda._core.batch import check_parallel
 from fuda._core.encoding import batch_count
 
 T = TypeVar('T', covariant=True)
@@ -12,9 +13,19 @@ class Generator(Generic[T]):  # noqa: UP046 - preserve covariance for specialize
     def generate(self) -> T:
         raise NotImplementedError
 
-    def generate_many(self, count: int) -> list[T]:
+    def generate_many(self, count: int, *, parallel: bool = False) -> list[T]:
+        """Generate IDs in order, allowing independent native work to use threads."""
         batch_count(count)
+        check_parallel(parallel)
+        if count == 0:
+            return []
+        if count == 1:
+            return [self.generate()]
 
+        return self._generate_many(count, parallel)
+
+    def _generate_many(self, count: int, parallel: bool) -> list[T]:
+        # Clock and counter transitions must stay in generation order.
         return [self.generate() for _ in range(count)]
 
     def iter_ids(self, count: int | None = None) -> Iterator[T]:

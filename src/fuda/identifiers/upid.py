@@ -4,6 +4,7 @@ from typing import Self
 from time import time_ns
 from collections.abc import Callable
 from fuda._core.state import Generator
+from fuda._core.extension import native
 from fuda.identifiers.types import BinaryID
 from fuda._core.encoding import decode, encode, integer
 
@@ -81,3 +82,12 @@ class UPIDGenerator(Generator[UPID]):
         timestamp = integer(self._clock(), 'timestamp', 0, (1 << 48) - 1) >> 8
 
         return UPID((timestamp << 88) | (int.from_bytes(urandom(8), 'big') << 24) | self._suffix)
+
+    def _generate_many(self, count: int, parallel: bool) -> list[UPID]:
+        values = native.random_u128_many(count, (1 << 64) - 1, parallel=parallel)
+        results = []
+        for random in values:
+            timestamp = integer(self._clock(), 'timestamp', 0, (1 << 48) - 1) >> 8
+            results.append(UPID((timestamp << 88) | (random << 24) | self._suffix))
+
+        return results

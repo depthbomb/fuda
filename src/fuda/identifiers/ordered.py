@@ -3,6 +3,7 @@ from secrets import randbits
 from os import getpid, urandom
 from collections.abc import Callable
 from fuda._core.encoding import integer
+from fuda._core.extension import native
 from fuda._core.state import Generator, ProcessGenerator
 from fuda.identifiers.extended_types import TID, PushID, Timeflake
 
@@ -39,6 +40,15 @@ class TimeflakeGenerator(Generator[Timeflake]):
         now = integer(self._clock(), 'timestamp', 0, (1 << 48) - 1)
 
         return Timeflake((now << 80) | int.from_bytes(urandom(10), 'big'))
+
+    def _generate_many(self, count: int, parallel: bool) -> list[Timeflake]:
+        values = native.random_u128_many(count, (1 << 80) - 1, parallel=parallel)
+        results = []
+        for random in values:
+            now = integer(self._clock(), 'timestamp', 0, (1 << 48) - 1)
+            results.append(Timeflake((now << 80) | random))
+
+        return results
 
 class TIDGenerator(ProcessGenerator[TID]):
     """Monotonic AT Protocol TIDs. The clock returns Unix microseconds."""

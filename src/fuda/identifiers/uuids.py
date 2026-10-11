@@ -2,6 +2,7 @@ from os import urandom
 from time import time_ns
 from collections.abc import Callable
 from fuda._core.encoding import integer
+from fuda._core.extension import native
 from uuid import UUID, uuid1, uuid3, uuid4, uuid5
 from fuda._core.state import Generator, ProcessGenerator
 
@@ -60,6 +61,12 @@ class UUID4Generator(Generator[UUID]):
     def generate(self) -> UUID:
         return uuid4()
 
+    def _generate_many(self, count: int, parallel: bool) -> list[UUID]:
+        mask = ((1 << 128) - 1) ^ ((15 << 76) | (3 << 62))
+        values = native.random_u128_many(count, mask, (4 << 76) | (2 << 62), parallel)
+
+        return [UUID(int=value) for value in values]
+
 class UUID5Generator(Generator[UUID]):
     """Return the deterministic SHA-1 UUID for a configured namespace and name."""
 
@@ -91,6 +98,18 @@ class UUID8Generator(Generator[UUID]):
 
     def generate(self) -> UUID:
         return uuid8(self._a, self._b, self._c)
+
+    def _generate_many(self, count: int, parallel: bool) -> list[UUID]:
+        mask = fixed = 0
+        for value, bits, shift in ((self._a, 48, 80), (self._b, 12, 64), (self._c, 62, 0)):
+            if value is None:
+                mask |= ((1 << bits) - 1) << shift
+            else:
+                fixed |= value << shift
+        fixed |= (8 << 76) | (2 << 62)
+        values = native.random_u128_many(count, mask, fixed, parallel)
+
+        return [UUID(int=value) for value in values]
 
 class UUID7Generator(ProcessGenerator[UUID]):
     """Monotonic within one generator, using logical time during clock rollback."""

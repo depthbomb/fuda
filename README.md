@@ -139,6 +139,12 @@ them without modulo bias.
 `iter_ids()` produces values as you request them; omit the count for an unbounded
 iterator. Use iteration when you don't want the whole batch in memory.
 
+CUID2, NanoID, UUIDv4, UUIDv8, KSUID, ShortUUID, Timeflake, and UPID use native
+batch generation. Other generators keep their clock and counter updates in order
+by calling `generate()` for each ID. All generators accept
+`generate_many(count, parallel=True)` to allow native work to use worker threads;
+clock callbacks and state updates stay ordered.
+
 ### Names and fixed values
 
 UUIDv3 and UUIDv5 derive an ID from a namespace and name:
@@ -251,6 +257,19 @@ assert fuda.UUID25.decode(fuda.UUID25.encode(original)) == original
 assert fuda.decode_shortuuid(fuda.shortuuid(original)) == original
 ```
 
+Sqids, Hashids, Proquint, and UUID25 also have `encode_many()` and `decode_many()`.
+They accept up to 1,000,000 inputs, keep the input order, and support
+`parallel=True` for native worker threads:
+
+```python
+import fuda
+
+codec = fuda.Hashids(salt='example namespace')
+values = [[1, 2], [42], [100, 200]]
+encoded = codec.encode_many(values, parallel=True)
+assert codec.decode_many(encoded, parallel=True) == values
+```
+
 Sqids and Hashids accept integers from `0` through `2**63 - 1`. Keep the same
 alphabet, salt, minimum length, and blocklist settings wherever you encode or
 decode. `parse()`, `validate()`, and `inspect()` use the default codec settings;
@@ -352,11 +371,11 @@ input; argument and configuration errors exit with `2`. Run a command with
 
 ## Performance
 
-Rust handles shared encoding, parsing, codecs, and CUID2 generation. Generator
-state lives in Python, and content hashing uses the standard library.
-
-`Cuid2Generator(parallel=True)` spreads batch generation across native workers.
-After POSIX fork, a child with an inherited active worker pool uses serial batches.
+Rust handles shared random batches, encoding, parsing, and codecs. Native batch
+operations release the GIL. Passing `parallel=True` allows larger batches to use
+a shared worker pool. Generator state lives in Python, and content hashing uses
+the standard library. After POSIX fork, a child with an inherited active worker
+pool uses serial native batches.
 
 To benchmark your setup, install the development extra and run:
 
@@ -368,6 +387,11 @@ The suite covers all 39 formats, including final string conversion. It reuses
 generators and uses OS randomness. Sonyflake uses a larger sequence field to avoid
 exhausting its default 256-ID tick; the layout is recorded in the results.
 Use `--focus` to filter benchmark names.
+
+`tools/benchmark_batches.py` measures generation and codec batches. Use
+`--parallel` to enable workers or `--serial-calls` to compare with repeated single
+calls. `--size` sets the number of items per batch. Parallel execution can help
+with heavier workloads; smaller batches may be faster without it.
 
 ## Development
 

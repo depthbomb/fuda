@@ -1,4 +1,5 @@
 // Hashids 1.x algorithm. See src/fuda/LICENSE.hashids for attribution.
+use crate::batch;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -212,5 +213,30 @@ impl HashidsCodec {
         }
 
         Ok(values)
+    }
+
+    #[pyo3(signature = (values, parallel=false))]
+    fn encode_many(
+        &self,
+        py: Python<'_>,
+        values: Vec<Vec<u64>>,
+        parallel: bool,
+    ) -> PyResult<Vec<String>> {
+        py.detach(|| {
+            batch::map(values.len(), parallel, |index| {
+                Ok(String::from_utf8(self.encode_values(&values[index])?)
+                    .expect("alphabet is ASCII"))
+            })
+        })
+    }
+
+    #[pyo3(signature = (values, parallel=false))]
+    fn decode_many(
+        &self,
+        py: Python<'_>,
+        values: Vec<String>,
+        parallel: bool,
+    ) -> PyResult<Vec<Vec<u64>>> {
+        py.detach(|| batch::map(values.len(), parallel, |index| self.decode(&values[index])))
     }
 }
