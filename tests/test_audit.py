@@ -106,7 +106,7 @@ def test_snapshot_alias_validation_has_linear_lookup_cost():
 
 @mark.skipif(os_name == 'nt', reason='requires POSIX fork and the native extension')
 def test_native_parallel_generation_after_fork():
-    # Run in a child interpreter with a bounded alarm so a regression cannot hang pytest.
+    # Use a child interpreter and alarm so a deadlock cannot hang pytest.
     code = '''
 import os, signal
 from fuda import Cuid2Generator, is_cuid2

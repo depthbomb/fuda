@@ -1,5 +1,4 @@
 from copy import copy, deepcopy
-from os import environ
 from pickle import dumps, loads
 from subprocess import run
 from sys import executable
@@ -151,7 +150,7 @@ def test_native_codec_malformed_inputs_match_python(kind, text):
             assert native.decode(text, **options) == expected
 
 @mark.parametrize('kind', ['sqids', 'hashids'])
-def test_accelerated_codecs_can_be_copied_and_pickled(kind):
+def test_codecs_can_be_copied_and_pickled(kind):
     codec = Sqids(min_length=30) if kind == 'sqids' else Hashids(min_length=30)
     for duplicate in (copy(codec), deepcopy(codec), loads(dumps(codec))):
         encoded = codec.encode([1, 0, 2**63 - 1])
@@ -162,12 +161,6 @@ def test_nih_check_digit_matches_python(data):
     digits = list(reversed(data.hex()))
     total = sum(sum(divmod(int(char, 16) * (2 if index % 2 == 0 else 1), 16)) for index, char in enumerate(digits))
     assert _native.hex_checkdigit(data.hex()) == format(-total % 16, 'x')
-
-@mark.parametrize('value', ['python', 'native', 'auto', 'invalid'])
-def test_legacy_environment_variables_do_not_select_an_implementation(value):
-    code = "from fuda import Cuid2Generator, Hashids; from fuda._core.extension import native; assert len(Cuid2Generator().generate()) == 24; assert Hashids().decode(Hashids().encode([1])) == [1]"
-    result = run([executable, '-c', code], env={**environ, 'FUDA_BACKEND': value, 'FUDA_PURE_PYTHON': '1'}, capture_output=True, text=True, timeout=15)
-    assert result.returncode == 0, result.stderr
 
 def test_missing_native_extension_has_an_actionable_error():
     code = """

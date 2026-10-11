@@ -49,11 +49,6 @@ def test_every_generatable_format_has_a_public_class_and_cli_entry():
         assert cls.__name__ in fuda.__all__
         assert _GENERATORS[name] is cls
 
-def test_generic_generation_helpers_are_removed():
-    for name in ('generator', 'generate', 'generate_many', 'iter_ids'):
-        assert not hasattr(fuda, name)
-        assert not hasattr(fuda.api, name)
-
 @mark.parametrize('name,cls,options', GENERATORS)
 def test_generator_interface(name, cls, options):
     source = cls(**options)

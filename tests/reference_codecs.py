@@ -1,9 +1,4 @@
-"""Python codec oracles retained for native differential tests only.
-
-These are the pre-acceleration implementations, already checked against the
-upstream vectors. Keeping them here lets us compare algorithms without shipping
-a second runtime implementation in the package.
-"""
+"""Python reference codecs for checking Rust implementations against upstream vectors."""
 from math import ceil
 from json import loads
 from binascii import Error

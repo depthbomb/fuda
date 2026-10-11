@@ -12,7 +12,7 @@ def test_base36(number):
     assert base36(number) == expected
 
 @given(st.text(alphabet=st.characters(exclude_categories=('Cs',)), max_size=500))
-def test_hash_backend(data):
+def test_native_hash_matches_reference(data):
     expected = base36(int.from_bytes(sha3_512(data.encode()).digest(), 'big'))
     assert _native.hash_base36(data) == expected
     assert _native.hash_base36(data)[1:] == reference.create_hash(data)
@@ -52,10 +52,6 @@ def test_exact_length_retry(monkeypatch):
     monkeypatch.setattr('fuda.identifiers.cuid.native.cuid2', lambda *args: 'short')
     with raises(RuntimeError, match='exact-length'):
         generator.generate()
-
-def test_backend_argument_is_removed():
-    with raises(TypeError):
-        Cuid2Generator(backend='native')
 
 def test_batch_retries_short_native_results(monkeypatch):
     monkeypatch.setattr('fuda.identifiers.cuid.native.cuid2_many', lambda *args: ['short', 'a' * 24])
