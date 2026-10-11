@@ -424,9 +424,3 @@ checks for invalid input, clock changes, and process state.
 CI builds wheels from the source distribution and tests them outside the checkout.
 It covers Python 3.14 and 3.15 on Linux, Windows, and macOS, including x86-64,
 ARM64, and Linux musl.
-
-## License
-
-[MIT](LICENSE). The distribution also includes attribution and licenses for the
-[Sqids](src/fuda/LICENSE.sqids), [Hashids](src/fuda/LICENSE.hashids), and
-[data-encoding](src/fuda/LICENSE.data-encoding) code and data.
