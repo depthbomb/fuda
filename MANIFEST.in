@@ -1,0 +1,8 @@
+include Cargo.toml Cargo.lock LICENSE
+recursive-include rust *.rs
+recursive-include src *.py *.pyi py.typed
+include src/fuda/codecs/sqids-blocklist.json src/fuda/LICENSE.*
+recursive-include tests *.py *.json
+recursive-include tests LICENSE.*
+recursive-include tools *.py
+

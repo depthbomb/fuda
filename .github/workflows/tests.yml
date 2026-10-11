@@ -1,0 +1,170 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' && github.ref_type != 'tag' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025, windows-11-arm, macos-15-intel, macos-15]
+        python: ['3.12', '3.13', '3.14']
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Create virtual environment
+        run: python -m venv .venv
+      - name: Select virtual environment
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "$GITHUB_WORKSPACE/.venv/Scripts" >> "$GITHUB_PATH"
+          else
+            echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          fi
+      - name: Set up Rust
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ] && [ "$RUNNER_ARCH" = "ARM64" ]; then
+            rustup set default-host aarch64-pc-windows-msvc
+          fi
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          from os import environ
+          from pathlib import Path
+          from tomllib import loads
+
+          project = loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']
+          version = project['version']
+          tag = environ.get('RELEASE_TAG', '')
+          if tag and tag != f'v{version}':
+              raise SystemExit(f'Release tag {tag!r} does not match version {version!r}')
+          print(f'Checking {project["name"]} {version}')
+          PY
+      - name: Lint Python
+        run: python -m ruff check .
+      - name: Check Python formatting
+        run: python tools/style.py --check
+      - name: Check Python types
+        run: python -m mypy
+      - name: Check Rust
+        run: |
+          cargo fmt --check
+          cargo clippy --release -- -D warnings
+          cargo test --release
+      - name: Build source distribution
+        run: python -m build --sdist
+      - name: Build native wheel from source distribution
+        run: python -m cibuildwheel dist/*.tar.gz --output-dir wheelhouse
+      - name: Check distributions
+        run: python -m twine check --strict dist/* wheelhouse/*
+      - name: Install built wheel
+        run: python -m pip install --no-index --find-links=wheelhouse --only-binary=:all: --force-reinstall --no-deps fuda
+      - name: Check installed wheel
+        run: |
+          python -I - <<'PY'
+          from sys import prefix
+          from pathlib import Path
+          from tomllib import loads
+          from fuda import __file__, _native
+          from importlib.metadata import version
+
+          project = loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']
+          installed_version = version(project['name'])
+          if installed_version != project['version']:
+              raise SystemExit(f'Installed version {installed_version!r} does not match {project["version"]!r}')
+          for location in (__file__, _native.__file__):
+              if not Path(location).resolve().is_relative_to(Path(prefix).resolve()):
+                  raise SystemExit(f'Imported checkout instead of installed wheel: {location}')
+          print(__file__)
+          PY
+      - name: Test installed wheel with coverage
+        run: |
+          test_dir=$(mktemp -d)
+          cp -R tests "$test_dir/"
+          cp pyproject.toml "$test_dir/"
+          cp -R tools "$test_dir/"
+          cd "$test_dir"
+          python -m pytest --import-mode=importlib --cov=fuda --cov-branch --cov-report=term-missing --cov-report="xml:$RUNNER_TEMP/coverage.xml"
+      - name: Check installed dependencies
+        run: python -m pip check
+      - name: Collect validated distributions
+        if: matrix.python == '3.12'
+        run: |
+          mkdir -p validated-dist
+          cp wheelhouse/*.whl validated-dist/
+          if [ "${{ matrix.os }}" = "ubuntu-24.04" ]; then
+            cp dist/*.tar.gz validated-dist/
+          fi
+      - name: Save validated distributions
+        if: matrix.python == '3.12'
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-distributions-${{ matrix.os }}
+          path: validated-dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Save coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.python }}
+          path: ${{ runner.temp }}/coverage.xml
+          if-no-files-found: error
+          retention-days: 14
+
+  distribution_check:
+    name: Check complete wheel set
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Create virtual environment
+        run: python -m venv .venv
+      - name: Select virtual environment
+        run: echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - name: Download validated distributions
+        uses: actions/download-artifact@v8
+        with:
+          pattern: python-distributions-*
+          path: dist/
+          merge-multiple: true
+      - name: Check supported platforms and package contents
+        run: python tools/check_distributions.py dist/

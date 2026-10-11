@@ -1,0 +1,84 @@
+[build-system]
+requires = ['setuptools==84.0.0', 'setuptools-rust==1.13.0']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'fuda'
+version = '0.1.0'
+description = 'Typed identifiers and fast generation through a consistent Python API.'
+requires-python = '>=3.12'
+license = 'MIT'
+license-files = ['LICENSE', 'src/fuda/LICENSE.*']
+authors = [{name = 'Fuda contributors'}]
+readme = 'README.md'
+keywords = ['uid', 'uuid', 'cuid2', 'ulid', 'nanoid', 'xuid', 'typeid']
+classifiers = [
+  'Development Status :: 3 - Alpha',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3.12',
+  'Programming Language :: Python :: 3.13',
+  'Programming Language :: Python :: 3.14',
+  'Programming Language :: Rust',
+  'Typing :: Typed',
+]
+
+[project.urls]
+Repository = 'https://github.com/depthbomb/fuda'
+Issues = 'https://github.com/depthbomb/fuda/issues'
+
+[project.scripts]
+fuda = 'fuda.cli:main'
+
+[project.optional-dependencies]
+dev = [
+  'build==1.6.1', 'twine==7.0.0', 'ruff==0.16.10', 'mypy==2.4.0',
+  'pytest==9.1.1', 'pytest-cov==7.1.0', 'hypothesis==6.168.5',
+  'pyperf==2.10.0', 'cuid2==2.0.1',
+  'cibuildwheel==4.3.0',
+]
+
+[tool.cibuildwheel]
+build = 'cp312-*'
+archs = ['native']
+test-sources = ['tests', 'tools', 'pyproject.toml']
+test-requires = ['pytest==9.1.1', 'pytest-cov==7.1.0', 'hypothesis==6.168.5', 'cuid2==2.0.1']
+test-command = 'python -m pytest --import-mode=importlib --cov=fuda --cov-branch --cov-report=term-missing'
+
+[tool.cibuildwheel.linux]
+before-all = 'curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal'
+environment = {PATH = '/root/.cargo/bin:$PATH'}
+manylinux-x86_64-image = 'manylinux_2_28'
+manylinux-aarch64-image = 'manylinux_2_28'
+musllinux-x86_64-image = 'musllinux_1_2'
+musllinux-aarch64-image = 'musllinux_1_2'
+
+[tool.cibuildwheel.macos]
+environment = {MACOSX_DEPLOYMENT_TARGET = '11.0'}
+
+[tool.setuptools.packages.find]
+where = ['src']
+
+[tool.setuptools.package-data]
+fuda = ['py.typed', '*.pyi', 'codecs/sqids-blocklist.json', 'LICENSE.*']
+
+[tool.ruff]
+target-version = 'py312'
+line-length = 120
+
+[tool.ruff.lint]
+select = ['E4', 'E7', 'E9', 'F', 'UP', 'B']
+ignore = ['B008']
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.mypy]
+python_version = '3.12'
+files = ['src/fuda']
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ['tests']
+pythonpath = ['tests', 'tools']
+addopts = '--import-mode=importlib'
+

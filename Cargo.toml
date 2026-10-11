@@ -1,0 +1,25 @@
+[package]
+name = "fuda-native"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+path = "rust/lib.rs"
+
+[dependencies]
+pyo3 = { version = "0.29.3", features = ["abi3-py312"] }
+sha3 = "0.12.0"
+getrandom = "0.4.3"
+num-bigint = "0.5.1"
+rayon = "1.11"
+data-encoding = "2.11.1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
