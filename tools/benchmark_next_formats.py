@@ -1,4 +1,4 @@
-"""Benchmarks for the next format group, including final string conversion.
+"""Compare identifier and content formats using their final strings.
 
 Optional reference dependencies: upid==0.3.1, uuid25==0.1.4, hashids==1.3.1,
 multiformats==0.3.1.post4. Use pyperf's -o PATH to keep raw samples.

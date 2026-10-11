@@ -1,30 +1,23 @@
 # 🏷️ Fuda
 
-A universal Python library for working with unique IDs.
+A Python library for generating, parsing, and inspecting IDs.
 
-Generate an ID, read one back, or find out what's inside it. Fuda brings 39 formats
-under a shared Python API, with typed values where the format has something useful
-to expose, like a timestamp, a UUID, or a content digest.
+Fuda supports 39 formats, from UUIDs and ULIDs to content identifiers like CID.
+Generate one ID or a batch, parse an ID from text, or read its timestamp and other
+fields. You can use it from Python or the command line.
 
-- Generate individual IDs, batches, or a stream of IDs.
-- Parse, validate, and inspect formats through the same set of functions.
-- Configure generator classes once and reuse them across calls.
-- Work from Python or the command line, with Rust handling the hot loops.
-
-Fuda supports **Python 3.14+**, has **no required third-party Python runtime
-dependencies**, and is licensed under **MIT**. It's still in early development,
-so the API may change before a stable release.
+Requires **CPython 3.14+**. Fuda includes a Rust extension and has no required
+third-party Python runtime dependencies.
 
 ## Installation
 
-Install from PyPI in your virtual environment:
+Install in your virtual environment:
 
 ```sh
 python -m pip install fuda
 ```
 
-The Rust extension comes inside the wheel, so a normal install doesn't need a
-Rust toolchain. Wheels target these platforms:
+Wheels include the Rust extension for these platforms:
 
 | Platform | Architectures |
 | --- | --- |
@@ -33,16 +26,14 @@ Rust toolchain. Wheels target these platforms:
 | Linux with glibc 2.28+ | x86-64, ARM64 |
 | Linux with musl 1.2+, including Alpine | x86-64, ARM64 |
 
-Fuda uses CPython's stable ABI, so the same wheel works across standard CPython
-3.14+ versions. CI covers 3.14 and 3.15. Free-threaded Python and PyPy aren't
-supported by these wheels.
+The same wheel works on standard CPython 3.14 and newer. Free-threaded Python and
+PyPy aren't supported.
 
-The extension is required and always used. There are no backend settings or
-environment variables to configure. If you want pip to require a prebuilt wheel,
-use `python -m pip install --only-binary=fuda fuda`. Building from source, including
-an editable checkout, needs Rust and a native compiler for your platform.
+To require a prebuilt wheel, use `python -m pip install --only-binary=fuda fuda`.
+Building from source, including an editable checkout, needs Rust and a native
+compiler for your platform.
 
-## A quick start
+## Quick start
 
 ```python
 import fuda
@@ -63,19 +54,16 @@ assert fuda.ULID.from_str(str(event_id)) == event_id
 ```
 
 Every generator has `generate()`, `generate_many(count)`, and `iter_ids(count)`.
-Choose the class directly and keep the instance around to retain its configuration
-and state. There is no default format or generic generation factory.
+Keep the instance around to reuse its configuration and state.
 
-Return types follow the data: UUID generators return `uuid.UUID`, CUID2 and NanoID
-return strings, and formats such as ULID return small immutable value objects.
-Snowflake and Sonyflake return integers. Call `str(value)` when you need text for
-a URL, a JSON field, or a log message.
+UUID generators return `uuid.UUID`, CUID2 and NanoID return strings, and formats
+such as ULID return immutable value objects.
+Snowflake and Sonyflake return integers.
 
 ## Supported formats
 
-Import generator and value classes from `fuda`. The lowercase format names are
-used by the parsing helpers and CLI. Generators create IDs, codecs encode existing
-values, and content formats identify supplied bytes.
+Import these classes from `fuda`. Use the lowercase format names with the parsing
+helpers and CLI.
 
 ### Generators
 
@@ -125,35 +113,12 @@ values, and content formats identify supplied bytes.
 | `NI`, `NIH` | `ni`, `nih` | Bytes identified using named-information URI formats |
 | `SWHID` | `swhid` | File contents or structured Software Heritage objects |
 
-`fuda.formats()` returns the registry as `FormatInfo` objects, including each
-format's name, description, kind, and whether it can carry a timestamp.
+`fuda.formats()` lists each format's name, description, kind, and timestamp support.
 
 ## Generating IDs
 
-Create a generator for the format you want, then use its methods:
-
-```python
-import fuda
-
-ids = fuda.UUID7Generator()
-one = ids.generate()
-batch = ids.generate_many(100)
-
-for value in ids.iter_ids(5):
-    print(value)
-```
-
-Classes preserve concrete return types, so your editor can tell that
-`UUID7Generator.generate()` returns a UUID and `ULIDGenerator.generate_many()`
-returns a list of ULIDs. Codecs and content identifiers use `encode()` and
-`from_content()` because they need input to work with.
-
-The format-specific convenience functions, such as `uuid7()` and `ulid()`, are
-also available for one-off calls. The module-level `generator()`, `generate()`,
-`generate_many()`, and `iter_ids()` helpers have been removed. Use the corresponding
-methods on a generator instance instead.
-
-For repeated use with custom settings, keep a generator around:
+For one-off calls, use functions such as `fuda.uuid7()` or `fuda.ulid()`.
+For custom settings, create a generator:
 
 ```python
 import fuda
@@ -186,21 +151,18 @@ names = fuda.UUID5Generator(NAMESPACE_DNS, 'example.com')
 assert names.generate() == names.generate()
 ```
 
-A configured UUIDv3 or UUIDv5 generator returns the same ID on every call. Create
-another instance with a different name when you want another ID. UUIDv8 can fix
-some or all of its payload with `a`, `b`, and `c`; fully fixed payloads also produce
-the same ID every time. `ShortUUIDGenerator` creates new UUIDv4 values; use
-`shortuuid(existing_uuid)` or `UUID25.encode(existing_uuid)` to encode existing bits.
+A UUIDv3 or UUIDv5 generator returns the same ID on every call. Use a different
+name to get a different ID. UUIDv8 accepts fixed payload fields `a`, `b`, and `c`;
+setting all three also produces the same ID every time.
 
-CUID2 lengths range from 2 to 32 characters. NanoID accepts a configurable length
-and alphabet. Shorter IDs have less collision resistance, so choose a length for
-the number of IDs you expect to create.
+CUID2 accepts lengths from 2 to 32 characters. Shorter IDs have less collision
+resistance, so choose a length for the number of IDs you expect to create.
 
 ### Node-based formats
 
 Snowflake, Sonyflake, SCRU64, and Flake128 need an assigned `node_id`. SNO needs
-an assigned `partition`. These formats require a retained generator so their
-sequence state survives between calls:
+an assigned `partition`. Keep the generator instance so its sequence state
+survives between calls:
 
 ```python
 import fuda
@@ -217,9 +179,9 @@ partitioned = fuda.SNOGenerator(partition=7, metadata=3)
 
 Give concurrent generators distinct assignments. Fuda doesn't coordinate node
 leases or persist generator state across restarts. Only reuse an assignment once
-the previous generator's clock range has passed. Generators with assigned nodes
-or partitions refuse inherited use after fork; construct a new one with a
-distinct assignment in the child.
+its last timestamp has passed. Generators with assigned nodes or partitions
+refuse inherited use after fork; construct a new one with a distinct assignment
+in the child.
 
 Time ordering has a few format-specific details:
 
@@ -263,10 +225,8 @@ use the generator's `inspect()` method to interpret its fields correctly.
 and lengths, so it can return multiple matches. Keep the format alongside stored
 IDs when you need to parse them reliably.
 
-Validation checks structure. It doesn't establish who created an ID, whether it
-was generated randomly, or whether someone is allowed to access the resource.
-Timestamped and counter-based formats can expose time or sequence information.
-Use a dedicated token generator such as `secrets.token_urlsafe()` for secrets.
+Validation checks an ID's structure. IDs can expose timestamps or counters;
+use `secrets.token_urlsafe()` for authentication tokens and other secrets.
 
 ## Encoding existing values
 
@@ -293,8 +253,8 @@ assert fuda.decode_shortuuid(fuda.shortuuid(original)) == original
 
 Sqids and Hashids accept integers from `0` through `2**63 - 1`. Keep the same
 alphabet, salt, minimum length, and blocklist settings wherever you encode or
-decode. Generic `parse()`, `validate()`, and `inspect()` use the default codec
-settings; use your codec instance for custom settings. Sqids also offers
+decode. `parse()`, `validate()`, and `inspect()` use the default codec settings;
+use your codec instance for custom settings. Sqids also offers
 `decode(value, canonical=True)` to require the exact spelling for its settings.
 
 These codecs are reversible and add no randomness or encryption. A Hashids salt
@@ -392,68 +352,22 @@ input; argument and configuration errors exit with `2`. Run a command with
 
 ## Performance
 
-Reusable generators keep configuration and state between calls. The Rust
-extension speeds up shared encoding, parsing, and codec loops. NanoID uses cached
-alphabet tables with OS randomness on every call.
+Rust handles shared encoding, parsing, codecs, and CUID2 generation. Generator
+state lives in Python, and content hashing uses the standard library.
 
-For a rough reference, a development run on Windows 11 with CPython 3.14.8 x64
-measured these mean times on October 9, 2026. The earlier build only used Rust for
-CUID2; the updated build also accelerates shared operations:
+`Cuid2Generator(parallel=True)` spreads batch generation across native workers.
+After POSIX fork, a child with an inherited active worker pool uses serial batches.
 
-| Workload | Earlier build | Shared acceleration | Speedup |
-| --- | ---: | ---: | ---: |
-| ULID, generate and format | 5.16 µs | 3.03 µs | 1.70× |
-| KSUID, generate and format | 5.68 µs | 3.15 µs | 1.80× |
-| XUID, generate and format | 9.14 µs | 5.13 µs | 1.78× |
-| Sqids, encode three integers | 50.5 µs | 9.13 µs | 5.53× |
-| Hashids, encode three integers | 22.1 µs | 2.30 µs | 9.60× |
-| Proquint, encode four bytes | 1.55 µs | 0.389 µs | 3.98× |
-| CIDv0, hash and format | 12.8 µs | 4.08 µs | 3.14× |
-| CIDv1, hash and format | 15.2 µs | 8.52 µs | 1.78× |
-| NIH, hash and format | 24.9 µs | 10.1 µs | 2.46× |
-
-Across the full suite, 23 of 39 workloads improved by more than 10%. The remaining
-16 changed by less than 3.2%, including a few small slowdowns. These runs used
-pyperf with three worker processes, three measured values per process, one warmup, and a 50 ms
-minimum sample time. Codecs used rotating inputs and generators used real OS
-entropy. Some runs reported timing instability. These are local measurements;
-hardware, Python version, and batch size matter.
-
-To measure your own setup, install the development extra and run:
+To benchmark your setup, install the development extra and run:
 
 ```sh
 python tools/benchmark.py -p 3 -n 5 -w 1 --min-time 0.1 -o ../fuda-benchmark.json
 ```
 
-The main suite covers all 39 formats: generator output, codec output, and content
-hashing. It retains generator state and uses final encoded strings. Sonyflake uses
-a larger sequence field to avoid exhausting its default 256-ID tick in tight loops;
-that layout is recorded in the benchmark metadata. `--focus` filters benchmark names.
-
-`tools/benchmark_cuid2.py` compares CUID2 generation with `cuid2`, `idika`, and `anyid`.
-It needs `idika==0.3.1` and `anyid==0.5.0` in the same virtual environment in
-addition to the development dependencies. It compares final strings and labels
-the limited `anyid` import used to work around its Windows package import issue.
-
-### Native execution
-
-Fuda stays mostly Python. Its public classes, generator state, and process handling
-live there. Rust handles the loops that benefit from it:
-
-- Fixed-width radix encoding and decoding, shared by formats such as ULID, KSUID,
-  TypeID, ShortUUID, XID, TSID, SCRU128, and UUID25.
-- Multibase encoding and decoding for CID and Multihash, plus XUID's base32 text.
-- Sqids, Hashids, Proquint, and NIH check digits.
-- CUID2 generation, including optional parallel batches.
-
-UUID handling, hexadecimal formatting, and content hashing keep using Python's
-standard library. Those operations already have native implementations. The
-accelerators preserve the format rules, including leading zero bytes, padding
-checks, custom alphabets, and Unicode Hashids salts.
-
-`Cuid2Generator(parallel=True)` can spread batch generation across native workers.
-After POSIX fork, a child with an inherited active worker pool uses serial native
-batches. Other accelerators use immutable settings and don't start worker pools.
+The suite covers all 39 formats, including final string conversion. It reuses
+generators and uses OS randomness. Sonyflake uses a larger sequence field to avoid
+exhausting its default 256-ID tick; the layout is recorded in the results.
+Use `--focus` to filter benchmark names.
 
 ## Development
 
@@ -481,25 +395,11 @@ python -m twine check --strict dist/*
 
 `tools/style.py` applies the project's import ordering and spacing conventions.
 The test suite includes reference vectors, round trips, property tests, and
-regressions for invalid input, clock changes, and process state.
-
-The source is grouped by purpose:
-
-- `src/fuda/identifiers/` contains generators and their value types.
-- `src/fuda/codecs/` contains reversible encodings of existing values.
-- `src/fuda/content/` contains content identifiers and hashing helpers.
-- `src/fuda/_core/` contains shared state, encoding, and extension loading.
-- `rust/` contains the native hot loops; `src/fuda/_native.pyi` describes their
-  Python signatures.
-
-The top-level package keeps the public imports together, so callers can use
-`from fuda import ULIDGenerator` without knowing the source layout.
+checks for invalid input, clock changes, and process state.
 
 CI builds wheels from the source distribution and tests them outside the checkout.
-It covers Python 3.14–3.15 on Linux, Windows, and macOS, with x86-64 and ARM64 runners
-and separate Linux musl builds. The release check requires all eight platform
-wheels, the extension, typing files, codec data, and licenses. PyPI releases reuse
-those tested artifacts.
+It covers Python 3.14 and 3.15 on Linux, Windows, and macOS, including x86-64,
+ARM64, and Linux musl.
 
 ## License
 
