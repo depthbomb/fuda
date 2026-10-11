@@ -166,7 +166,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: python-distributions-*
-          path: dist/
           merge-multiple: true
+          path: dist/
       - name: Check supported platforms and package contents
         run: python tools/check_distributions.py dist/
